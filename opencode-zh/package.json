@@ -1,0 +1,53 @@
+{
+  "name": "opencode-zh",
+  "version": "1.1.65",
+  "description": "OpenCode 中文版 - OpenCode Chinese Version with full Chinese UI support",
+  "bin": {
+    "opencode-zh": "./bin/opencode-zh.js"
+  },
+  "scripts": {
+    "postinstall": "node scripts/postinstall.js",
+    "localize": "bun run localize.ts",
+    "build": "cd ../packages/opencode && bun run build"
+  },
+  "keywords": [
+    "opencode",
+    "chinese",
+    "localization",
+    "i18n",
+    "ai",
+    "coding",
+    "assistant",
+    "cli",
+    "tui"
+  ],
+  "author": "opencode-zh",
+  "license": "MIT",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/opencode-zh/opencode-zh"
+  },
+  "homepage": "https://github.com/opencode-zh/opencode-zh#readme",
+  "bugs": {
+    "url": "https://github.com/opencode-zh/opencode-zh/issues"
+  },
+  "engines": {
+    "node": ">=18.0.0"
+  },
+  "files": [
+    "bin/",
+    "scripts/",
+    "translations/",
+    "localize.ts",
+    "install.sh",
+    "update.sh",
+    "README.md"
+  ],
+  "dependencies": {},
+  "devDependencies": {},
+  "os": [
+    "linux",
+    "darwin",
+    "win32"
+  ]
+}

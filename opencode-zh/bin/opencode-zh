@@ -1,0 +1,116 @@
+#!/usr/bin/env node
+
+const { spawn, execSync } = require("child_process")
+const fs = require("fs")
+const path = require("path")
+
+const OPENCODE_DIR = "/root/opencode"
+const LOCALIZE_SCRIPT = path.join(OPENCODE_DIR, "opencode-zh", "localize.ts")
+const STATE_FILE = path.join(OPENCODE_DIR, "opencode-zh", ".localized-version")
+
+function getOpenCodeVersion() {
+  try {
+    const packageJson = JSON.parse(
+      fs.readFileSync(path.join(OPENCODE_DIR, "packages/opencode/package.json"), "utf-8")
+    )
+    return packageJson.version
+  } catch {
+    return "unknown"
+  }
+}
+
+function getLocalizedVersion() {
+  try {
+    if (fs.existsSync(STATE_FILE)) {
+      return fs.readFileSync(STATE_FILE, "utf-8").trim()
+    }
+  } catch {}
+  return null
+}
+
+function setLocalizedVersion(version) {
+  fs.writeFileSync(STATE_FILE, version)
+}
+
+function needsLocalization() {
+  const currentVersion = getOpenCodeVersion()
+  const localizedVersion = getLocalizedVersion()
+  return currentVersion !== localizedVersion
+}
+
+function runLocalization() {
+  console.log("\n\x1b[36mOpenCode-ZH: Applying Chinese localization...\x1b[0m\n")
+  
+  try {
+    execSync(`bun run ${LOCALIZE_SCRIPT}`, {
+      cwd: OPENCODE_DIR,
+      stdio: "inherit"
+    })
+    
+    const version = getOpenCodeVersion()
+    setLocalizedVersion(version)
+    
+    console.log("\n\x1b[32mOpenCode-ZH: Localization applied successfully!\x1b[0m\n")
+  } catch (error) {
+    console.error("\n\x1b[31mOpenCode-ZH: Localization failed!\x1b[0m")
+    console.error(error.message)
+    process.exit(1)
+  }
+}
+
+function buildIfNeeded() {
+  const distDir = path.join(OPENCODE_DIR, "packages/opencode/dist")
+  const currentVersion = getOpenCodeVersion()
+  
+  const expectedBinary = path.join(distDir, "opencode-linux-x64", "bin", "opencode")
+  if (!fs.existsSync(expectedBinary)) {
+    console.log("\n\x1b[36mOpenCode-ZH: Building OpenCode from source...\x1b[0m\n")
+    try {
+      execSync("bun run build", {
+        cwd: path.join(OPENCODE_DIR, "packages/opencode"),
+        stdio: "inherit"
+      })
+    } catch (error) {
+      console.error("\n\x1b[31mOpenCode-ZH: Build failed!\x1b[0m")
+      process.exit(1)
+    }
+  }
+}
+
+function runOpenCode() {
+  const args = process.argv.slice(2)
+  
+  const binaryPath = path.join(
+    OPENCODE_DIR,
+    "packages/opencode/dist/opencode-linux-x64/bin/opencode"
+  )
+  
+  const result = spawn(binaryPath, args, {
+    stdio: "inherit",
+    env: {
+      ...process.env,
+      OPENCODE_BIN_PATH: binaryPath
+    }
+  })
+  
+  result.on("close", (code) => {
+    process.exit(code || 0)
+  })
+}
+
+function main() {
+  console.log("\x1b[36m╔════════════════════════════════════════╗\x1b[0m")
+  console.log("\x1b[36m║     OpenCode Chinese Version           ║\x1b[0m")
+  console.log("\x1b[36m║     OpenCode 中文版                    ║\x1b[0m")
+  console.log("\x1b[36m╚════════════════════════════════════════╝\x1b[0m")
+  
+  buildIfNeeded()
+  
+  if (needsLocalization()) {
+    runLocalization()
+  }
+  
+  runOpenCode()
+}
+
+main()
