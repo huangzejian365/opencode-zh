@@ -1,6 +1,6 @@
 {
   "name": "opencode-cn",
-  "version": "1.2.11",
+  "version": "1.2.12",
   "description": "OpenCode 中文翻译插件 - OpenCode Chinese Localization Plugin",
   "main": "dist/localize.js",
   "bin": {
