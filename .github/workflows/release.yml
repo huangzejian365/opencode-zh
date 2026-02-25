@@ -10,6 +10,7 @@ on:
     branches: [main, master]
     paths:
       - 'package.json'
+  workflow_dispatch:  # 👈 添加这一行，允许手动点击运行
 
 jobs:
   check-and-publish:
