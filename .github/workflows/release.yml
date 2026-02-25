@@ -1,5 +1,10 @@
 name: Release to NPM
 
+# 🔑 关键修复 1: 添加权限，允许创建 Release 和推送 Tag
+permissions:
+  contents: write  # 允许写内容（打 Tag、创建 Release）
+  packages: write  # 允许发布包（可选，npm 发布主要靠 NPM_TOKEN）
+
 on:
   push:
     branches: [main, master]
@@ -9,13 +14,13 @@ on:
 jobs:
   check-and-publish:
     runs-on: ubuntu-latest
-    if: github.event_name == 'push' && (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/master')
 
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
         with:
-          fetch-depth: 2
+          fetch-depth: 2 # 获取最近两次提交，方便对比
+          token: ${{ secrets.GITHUB_TOKEN }} # 确保有权限推送 Tag
 
       - name: Setup Node.js
         uses: actions/setup-node@v4
@@ -57,23 +62,35 @@ jobs:
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
 
+      # 🔑 关键修复 2: 在创建 Release 前，先打 Tag 并推送到 GitHub
+      - name: Create and Push Tag
+        if: steps.check_version.outputs.should_publish == 'true'
+        run: |
+          git config --global user.name "github-actions[bot]"
+          git config --global user.email "github-actions[bot]@users.noreply.github.com"
+          TAG_NAME="v${{ steps.check_version.outputs.version }}"
+          git tag $TAG_NAME
+          git push origin $TAG_NAME
+          echo "Created and pushed tag: $TAG_NAME"
+
+      # 🔑 关键修复 3: 使用更稳定的 release 插件
       - name: Create GitHub Release
         if: steps.check_version.outputs.should_publish == 'true'
-        uses: actions/create-release@v1
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        uses: softprops/action-gh-release@v1
         with:
           tag_name: v${{ steps.check_version.outputs.version }}
-          release_name: Release v${{ steps.check_version.outputs.version }}
+          name: Release v${{ steps.check_version.outputs.version }}
           body: |
             🎉 opencode-cn v${{ steps.check_version.outputs.version }} 已发布！
 
             ## 安装
             ```bash
-            npm install -g opencode-cn@${{ steps.check_version.outputs.version }}
+            npm install -g opencode-cn@ $ {{ steps.check_version.outputs.version }}
             ```
 
             ## 更新日志
             请查看 [CHANGELOG.md](CHANGELOG.md) 或提交历史。
           draft: false
           prerelease: false
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
