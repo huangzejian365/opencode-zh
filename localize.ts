@@ -210,7 +210,11 @@ function installOpenCode(targetDir: string): Promise<boolean> {
       log(GREEN, "✓ 源码克隆完成\n")
 
       log(CYAN, "[3/4] 安装依赖...")
-      const installProcess = spawn(bunCmd.split(" ")[0], bunCmd.split(" ").slice(1).concat(["install"]), {
+      // Use --production to skip devDependencies for faster install
+      const installArgs = process.platform === "win32" 
+        ? ["install", "--production", "--ignore-scripts"]
+        : ["install", "--production"]
+      const installProcess = spawn(bunCmd.split(" ")[0], bunCmd.split(" ").slice(1).concat(installArgs), {
         cwd: targetDir,
         stdio: "inherit",
         shell: true
