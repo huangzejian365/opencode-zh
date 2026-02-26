@@ -155,7 +155,9 @@ function getOpenCodeVersion(opencodeDir: string): string {
 
 function checkCommand(cmd: string): boolean {
   try {
-    execSync(`which ${cmd}`, { stdio: "ignore" })
+    // Use 'where' on Windows, 'which' on Unix-like systems
+    const checkCmd = process.platform === "win32" ? "where" : "which"
+    execSync(`${checkCmd} ${cmd}`, { stdio: "ignore" })
     return true
   } catch {
     return false

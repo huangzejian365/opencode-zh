@@ -110,7 +110,9 @@ function getOpenCodeVersion(opencodeDir) {
 }
 function checkCommand(cmd) {
     try {
-        (0, child_process_1.execSync)(`which ${cmd}`, { stdio: "ignore" });
+        // Use 'where' on Windows, 'which' on Unix-like systems
+        const checkCmd = process.platform === "win32" ? "where" : "which";
+        (0, child_process_1.execSync)(`${checkCmd} ${cmd}`, { stdio: "ignore" });
         return true;
     }
     catch {
