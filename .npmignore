@@ -21,7 +21,8 @@ npm-debug.log*
 node_modules/
 
 # Build outputs
-dist/
+# dist/ is included in package.json files field, so don't ignore it
+# dist/
 build/
 *.tsbuildinfo
 
