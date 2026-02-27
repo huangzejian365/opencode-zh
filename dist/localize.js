@@ -319,6 +319,38 @@ function upgradeOpenCode(opencodeDir) {
         });
     });
 }
+function copyBinaryToNodeModules(opencodeDir) {
+    const platform = process.platform;
+    const arch = process.arch;
+    const platformMap = {
+        darwin: "darwin",
+        linux: "linux",
+        win32: "windows"
+    };
+    const archMap = {
+        x64: "x64",
+        arm64: "arm64",
+        arm: "arm"
+    };
+    const platformName = platformMap[platform] || platform;
+    const archName = archMap[arch] || arch;
+    const packageName = `opencode-${platformName}-${archName}`;
+    const binaryName = platform === "win32" ? "opencode.exe" : "opencode";
+    const distBinaryPath = path_1.default.join(opencodeDir, "packages", "opencode", "dist", packageName, "bin", binaryName);
+    const nodeModulesBinaryPath = path_1.default.join(opencodeDir, "packages", "opencode", "node_modules", packageName, "bin", binaryName);
+    if (fs_1.default.existsSync(distBinaryPath)) {
+        // Create target directory if it doesn't exist
+        const targetDir = path_1.default.dirname(nodeModulesBinaryPath);
+        if (!fs_1.default.existsSync(targetDir)) {
+            fs_1.default.mkdirSync(targetDir, { recursive: true });
+        }
+        fs_1.default.copyFileSync(distBinaryPath, nodeModulesBinaryPath);
+        console.log(`✓ Binary copied to node_modules/${packageName}/bin/${binaryName}`);
+    }
+    else {
+        console.log(`⚠ Binary not found at: ${distBinaryPath}`);
+    }
+}
 function buildOpenCode(opencodeDir) {
     return new Promise((resolve, reject) => {
         console.log("\nBuilding OpenCode...");
@@ -332,6 +364,8 @@ function buildOpenCode(opencodeDir) {
         buildProcess.on("close", (code) => {
             if (code === 0) {
                 console.log("\n✓ Build completed successfully!");
+                // Copy binary to node_modules so bin/opencode can find it
+                copyBinaryToNodeModules(opencodeDir);
                 resolve(code);
             }
             else {

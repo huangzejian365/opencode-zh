@@ -392,6 +392,43 @@ function upgradeOpenCode(opencodeDir: string): Promise<boolean> {
   })
 }
 
+function copyBinaryToNodeModules(opencodeDir: string): void {
+  const platform = process.platform
+  const arch = process.arch
+  
+  const platformMap: Record<string, string> = {
+    darwin: "darwin",
+    linux: "linux",
+    win32: "windows"
+  }
+  const archMap: Record<string, string> = {
+    x64: "x64",
+    arm64: "arm64",
+    arm: "arm"
+  }
+  
+  const platformName = platformMap[platform] || platform
+  const archName = archMap[arch] || arch
+  const packageName = `opencode-${platformName}-${archName}`
+  const binaryName = platform === "win32" ? "opencode.exe" : "opencode"
+  
+  const distBinaryPath = path.join(opencodeDir, "packages", "opencode", "dist", packageName, "bin", binaryName)
+  const nodeModulesBinaryPath = path.join(opencodeDir, "packages", "opencode", "node_modules", packageName, "bin", binaryName)
+  
+  if (fs.existsSync(distBinaryPath)) {
+    // Create target directory if it doesn't exist
+    const targetDir = path.dirname(nodeModulesBinaryPath)
+    if (!fs.existsSync(targetDir)) {
+      fs.mkdirSync(targetDir, { recursive: true })
+    }
+    
+    fs.copyFileSync(distBinaryPath, nodeModulesBinaryPath)
+    console.log(`✓ Binary copied to node_modules/${packageName}/bin/${binaryName}`)
+  } else {
+    console.log(`⚠ Binary not found at: ${distBinaryPath}`)
+  }
+}
+
 function buildOpenCode(opencodeDir: string): Promise<number> {
   return new Promise((resolve, reject) => {
     console.log("\nBuilding OpenCode...")
@@ -406,6 +443,8 @@ function buildOpenCode(opencodeDir: string): Promise<number> {
     buildProcess.on("close", (code) => {
       if (code === 0) {
         console.log("\n✓ Build completed successfully!")
+        // Copy binary to node_modules so bin/opencode can find it
+        copyBinaryToNodeModules(opencodeDir)
         resolve(code)
       } else {
         console.log(`\n✗ Build failed with exit code ${code}`)
