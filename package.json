@@ -4,8 +4,7 @@
   "description": "OpenCode 中文翻译插件 - OpenCode Chinese Localization Plugin",
   "main": "dist/localize.js",
   "bin": {
-    "opencode-cn-localize": "dist/localize.js",
-    "opencode": "dist/localize.js"
+    "opencode-cn-localize": "dist/localize.js"
   },
   "scripts": {
     "build": "tsc",

@@ -409,6 +409,109 @@ Windows 与 Unix 系统差异大，需要特别处理：
 
 ---
 
+## 十五、CI 流程中二进制文件未构建问题
+
+### 问题描述
+在 CI 环境中运行 `opencode-cn-localize --install` 后直接执行 `opencode`，提示二进制文件不存在：
+
+```
+错误: 未找到 OpenCode 二进制文件
+
+请按以下步骤操作：
+  1. 运行翻译命令: opencode-cn-localize
+  2. 等待构建完成
+  3. 再次运行: opencode
+```
+
+### 原因分析
+原来的 `--install` 只完成：
+1. 克隆源码
+2. 安装依赖
+3. 安装平台二进制包
+
+但没有执行翻译和构建步骤，导致二进制文件不存在。
+
+### 尝试过的方案
+
+1. **分步执行** - 可行但不友好
+```bash
+opencode-cn-localize --install
+opencode-cn-localize
+```
+用户需要执行两次命令，容易遗漏。
+
+2. **CI 中运行 TUI 验证** - 失败
+```bash
+opencode  # 在非交互式终端中 TUI 无法正常运行
+```
+TUI 应用在 CI 环境中会以 exit code 1 退出。
+
+3. **`--install` 自动完成翻译和构建** - 最终解决方案 ✓
+
+### 最终解决方案
+
+修改 `--install` 逻辑，自动完成完整流程：
+
+```typescript
+if (install) {
+  // 1. 克隆源码
+  await installOpenCode(installDir)
+  
+  // 2. 自动继续执行翻译和构建
+  log(CYAN, "\n正在应用翻译并构建...")
+  const opencodeDir = installDir
+  
+  // 应用翻译
+  const moduleConfig = loadModuleConfig(translationsDir)
+  // ... 翻译逻辑 ...
+  
+  // 构建二进制
+  await buildOpenCode(opencodeDir)
+  
+  console.log("🎉 OpenCode 中文版已准备就绪！")
+}
+```
+
+### CI 验证方式
+
+在 CI 中使用 `--version` 验证而非启动 TUI：
+
+```yaml
+- name: Verify Installation
+  run: |
+    BINARY="$HOME/.opencode-cn/opencode/packages/opencode/node_modules/opencode-linux-x64/bin/opencode"
+    "$BINARY" --version  # 正确的验证方式
+    # 不要使用: opencode (TUI 在非交互终端会失败)
+```
+
+### 用户使用流程
+
+现在用户只需一条命令：
+
+```bash
+npm install -g opencode-cn
+opencode-cn-localize --install  # 完成所有步骤
+opencode                        # 直接启动
+```
+
+---
+
+## 十六、非交互式终端运行 TUI 问题
+
+### 问题描述
+在 CI 或非交互式终端中运行 `opencode`（TUI 应用），会显示帮助信息后以 exit code 1 退出。
+
+### 原因
+TUI 应用需要交互式终端来处理用户输入，在非交互环境（如 CI）中无法正常运行。
+
+### 解决方案
+在 CI 中使用以下命令验证安装：
+- `opencode --version` - 检查版本
+- `opencode --help` - 查看帮助
+- 或直接调用二进制文件
+
+---
+
 ## 常用调试命令
 
 ```bash
@@ -442,3 +545,182 @@ pkill -f opencode               # Unix
 - [Bun 官方文档](https://bun.sh/docs)
 - [Node.js spawn 文档](https://nodejs.org/api/child_process.html#child_process_spawn_command_args_options)
 - [npm link 文档](https://docs.npmjs.com/cli/v9/commands/npm-link)
+
+---
+
+## 十七、Windows 全局安装检测问题
+
+### 问题描述
+当用户已通过 `npm install -g opencode-ai` 安装官方版本后，运行 `opencode-cn-localize` 无法正确检测到已安装的 opencode，始终显示"未找到 OpenCode 安装目录"。
+
+### 原因分析
+
+1. **`where` 命令返回多行结果**
+   - Windows 上 `where opencode` 返回：
+     ```
+     C:\Program Files\nodejs\opencode
+     C:\Program Files\nodejs\opencode.cmd
+     ```
+   - 第一行不带扩展名，实际文件不存在
+
+2. **原代码只取第一行**
+   ```typescript
+   const binaryPath = execSync(`${checkCmd} opencode`, { encoding: "utf-8" }).trim().split("\n")[0]
+   ```
+   - 获取到 `C:\Program Files\nodejs\opencode`（无扩展名）
+   - `fs.existsSync(binaryPath)` 返回 false
+   - 尝试添加扩展名但逻辑有缺陷
+
+3. **版本检查失败**
+   - 即使找到路径，执行 `"${binaryPath}" --version` 时，如果路径不正确也会失败
+
+### 尝试过的方案
+
+1. **只检查第一行并添加扩展名** - 失败
+   - 第一行路径可能不是正确的可执行文件
+
+2. **检查路径是否包含 nodejs/npm/nvm** - 部分成功
+   - 可以判断是否全局安装，但无法获取版本
+
+3. **遍历所有返回路径** - 最终解决方案 ✓
+
+### 最终解决方案
+
+```typescript
+function getGlobalOpenCodeBinary(): { path: string; version: string } | null {
+  const checkCmd = process.platform === "win32" ? "where" : "which"
+  let output: string
+  
+  try {
+    output = execSync(`${checkCmd} opencode`, { encoding: "utf-8" }).trim()
+  } catch {
+    return null
+  }
+  
+  if (!output) {
+    return null
+  }
+  
+  const paths = output.split("\n").map(p => p.trim()).filter(p => p.length > 0)
+  
+  // 遍历所有返回的路径
+  if (process.platform === "win32") {
+    for (let rawPath of paths) {
+      let binaryPath = rawPath
+      
+      // 检查文件是否直接存在
+      if (fs.existsSync(binaryPath)) {
+        let version: string
+        try {
+          version = execSync(`"${binaryPath}" --version`, { encoding: "utf-8" }).trim()
+          return { path: binaryPath, version }
+        } catch {
+          continue
+        }
+      }
+      
+      // 尝试添加常见扩展名
+      const extensions = [".cmd", ".exe", ".ps1", ".bat"]
+      for (const ext of extensions) {
+        const testPath = binaryPath + ext
+        if (fs.existsSync(testPath)) {
+          binaryPath = testPath
+          break
+        }
+      }
+      
+      if (fs.existsSync(binaryPath)) {
+        let version: string
+        try {
+          version = execSync(`"${binaryPath}" --version`, { encoding: "utf-8" }).trim()
+          return { path: binaryPath, version }
+        } catch {
+          continue
+        }
+      }
+    }
+    return null
+  }
+  
+  // Unix-like 系统
+  const binaryPath = paths[0]
+  if (!fs.existsSync(binaryPath)) {
+    return null
+  }
+  
+  const version = execSync(`"${binaryPath}" --version`, { encoding: "utf-8" }).trim()
+  return { path: binaryPath, version }
+}
+```
+
+### isNpmGlobalInstall 同步修复
+
+```typescript
+function isNpmGlobalInstall(): boolean {
+  try {
+    const checkCmd = process.platform === "win32" ? "where" : "which"
+    let binaryPath = execSync(`${checkCmd} opencode`, { encoding: "utf-8" }).trim().split("\n")[0]
+    
+    if (process.platform === "win32") {
+      // 同样需要处理扩展名
+      if (!fs.existsSync(binaryPath)) {
+        const extensions = [".cmd", ".exe", ".ps1", ".bat"]
+        for (const ext of extensions) {
+          if (fs.existsSync(binaryPath + ext)) {
+            binaryPath = binaryPath + ext
+            break
+          }
+        }
+      }
+      
+      // Windows 全局安装特征
+      return binaryPath.includes("nodejs") ||
+             binaryPath.includes("node_modules") ||
+             binaryPath.includes("npm") ||
+             binaryPath.includes("nvm") ||
+             binaryPath.endsWith(".ps1") ||
+             binaryPath.endsWith(".cmd")
+    }
+    
+    return binaryPath.includes("node_modules") || 
+           binaryPath.includes("npm") ||
+           binaryPath.includes("nvm")
+  } catch {
+    return false
+  }
+}
+```
+
+### 经验教训
+
+1. **Windows 命令输出需要特殊处理**
+   - `where` 返回多行，需要遍历所有结果
+   - 文件扩展名可能缺失，需要尝试多种组合
+
+2. **路径检查要完整**
+   - 先检查原始路径
+   - 再尝试添加扩展名
+   - 最后验证能否执行获取版本
+
+3. **错误处理要健壮**
+   - 单个路径失败不意味着整体失败
+   - 继续尝试其他路径
+
+### 验证命令
+
+```bash
+# 查看 where 返回的所有路径
+where opencode
+
+# 检查实际存在的文件
+dir "C:\Program Files\nodejs\opencode*"
+
+# 测试版本命令
+opencode --version
+```
+<task_progress>
+- [x] 总结 Windows 检测逻辑修复错误
+- [x] 更新 TROUBLESHOOTING.md
+- [ ] 阅读 README.md
+- [ ] 更新 README.md 安装和运行说明
+</task_progress>

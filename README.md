@@ -1,7 +1,15 @@
 # OpenCode 中文翻译插件
 
 OpenCode 的中文本地化插件，为已安装的 OpenCode 提供中文界面支持。
-后续几天会更新一键安装包，方便大家使用
+
+## 重要说明
+
+> **翻译原理**：本插件通过替换 OpenCode 源码中的文本实现汉化，因此需要**从源码构建** OpenCode。
+> 
+> - 如果您**已安装** `opencode-ai`（npm 全局安装），运行 `opencode-cn-localize` 会提示您选择安装中文版
+> - 安装中文版后，原版 `opencode-ai` 仍可通过 `npx opencode-ai` 运行
+> - 无法在已安装的 `opencode-ai` 基础上直接翻译（因为是预编译二进制）
+
 ## 功能特点
 
 - 模块化翻译配置，易于维护
@@ -17,31 +25,55 @@ OpenCode 的中文本地化插件，为已安装的 OpenCode 提供中文界面�
 - [Bun](https://bun.sh/)（安装脚本会自动安装）
 - [Git](https://git-scm.com/)
 
-## 快速开始（两步完成）
+## 快速开始
 
-### 第1步：安装本翻译工具
+### 情况 A：未安装过 OpenCode（推荐）
 
 ```bash
-# 使用 NPM 安装
+# 1. 安装翻译工具
 npm install -g opencode-cn
 
-# 或使用 Bun 安装
-bun install -g opencode-cn
-```
-
-> ⚠️ **注意**：这只是安装了中文翻译工具，还没有安装 OpenCode 本体。
-
-### 第2步：安装并汉化 OpenCode
-
-```bash
-# 一键完成：下载 OpenCode + 应用中文翻译 + 构建
+# 2. 一键完成：下载 OpenCode + 应用中文翻译 + 构建
 opencode-cn-localize --install
+
+# 3. 启动中文版
+opencode
 ```
 
-安装完成后，直接运行：
+### 情况 B：已安装 opencode-ai（npm 全局安装）
+
 ```bash
-opencode  # 启动已汉化的 OpenCode
+# 1. 安装翻译工具
+npm install -g opencode-cn
+
+# 2. 运行检测（会提示已检测到原版）
+opencode-cn-localize
+
+# 输出示例：
+# ╔══════════════════════════════════════════════════════════════╗
+# ║           检测到已安装的 OpenCode                            ║
+# ║           Detected OpenCode Installation                     ║
+# ╚══════════════════════════════════════════════════════════════╝
+# ✓ 找到 OpenCode 1.2.15
+#   位置：C:\Program Files\nodejs\opencode
+#
+# OpenCode 中文版需要从源码构建以支持翻译。
+#
+# 选择安装方式：
+#   1. 安装中文版 (推荐): opencode-cn-localize --install
+#   2. 继续使用原版 (不翻译): opencode
+
+# 3. 安装中文版（会额外下载源码并构建）
+opencode-cn-localize --install
+
+# 4. 启动中文版（覆盖原版命令）
+opencode
+
+# 5. 如需使用原版
+npx opencode-ai
 ```
+
+> **说明**：安装中文版后，`opencode` 命令会启动中文版。原版可通过 `npx opencode-ai` 运行。
 
 ## 安装方式对比
 
@@ -50,6 +82,19 @@ opencode  # 启动已汉化的 OpenCode
 | **NPM**（推荐） | `npm install -g opencode-cn` | 最简单，自动管理依赖 |
 | **Bun** | `bun install -g opencode-cn` | 速度快，需先安装 Bun |
 | **手动** | `git clone` + `npm install` | 适合开发贡献 |
+
+## 原版与中文版关系
+
+| 项目 | opencode-ai（原版） | opencode-cn（中文版） |
+|------|---------------------|----------------------|
+| **安装方式** | `npm install -g opencode-ai` | `opencode-cn-localize --install` |
+| **形式** | 预编译二进制 | 源码构建 |
+| **翻译** | 英文界面 | 中文界面 |
+| **命令冲突** | 安装中文版后会被覆盖 | 使用 `opencode` 启动 |
+| **同时使用** | 可通过 `npx opencode-ai` 运行 | 可通过 `opencode` 运行 |
+| **更新方式** | `npm update -g opencode-ai` | `opencode-cn-localize --upgrade` + `opencode-cn-localize` |
+
+> **注意**：两者是独立的安装，互不影响。安装中文版会在 `~/.opencode-cn/opencode` 目录创建独立副本。
 
 ## 使用方法
 

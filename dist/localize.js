@@ -37,6 +37,99 @@ function getOpenCodeDir() {
     }
     return null;
 }
+function getGlobalOpenCodeBinary() {
+    // Find global opencode binary
+    const checkCmd = process.platform === "win32" ? "where" : "which";
+    let output;
+    try {
+        output = (0, child_process_1.execSync)(`${checkCmd} opencode`, { encoding: "utf-8" }).trim();
+    }
+    catch {
+        return null;
+    }
+    if (!output) {
+        return null;
+    }
+    const paths = output.split("\n").map(p => p.trim()).filter(p => p.length > 0);
+    // On Windows, try all returned paths and add extensions if needed
+    if (process.platform === "win32") {
+        for (let rawPath of paths) {
+            let binaryPath = rawPath;
+            // Check if file exists directly
+            if (fs_1.default.existsSync(binaryPath)) {
+                // Get version - use full path to avoid any PATH issues
+                let version;
+                try {
+                    version = (0, child_process_1.execSync)(`"${binaryPath}" --version`, { encoding: "utf-8" }).trim();
+                    return { path: binaryPath, version };
+                }
+                catch {
+                    continue;
+                }
+            }
+            // Try with common Windows extensions
+            const extensions = [".cmd", ".exe", ".ps1", ".bat"];
+            for (const ext of extensions) {
+                const testPath = binaryPath + ext;
+                if (fs_1.default.existsSync(testPath)) {
+                    binaryPath = testPath;
+                    break;
+                }
+            }
+            if (fs_1.default.existsSync(binaryPath)) {
+                // Get version
+                let version;
+                try {
+                    version = (0, child_process_1.execSync)(`"${binaryPath}" --version`, { encoding: "utf-8" }).trim();
+                    return { path: binaryPath, version };
+                }
+                catch {
+                    continue;
+                }
+            }
+        }
+        return null;
+    }
+    // Unix-like systems
+    const binaryPath = paths[0];
+    if (!fs_1.default.existsSync(binaryPath)) {
+        return null;
+    }
+    const version = (0, child_process_1.execSync)(`"${binaryPath}" --version`, { encoding: "utf-8" }).trim();
+    return { path: binaryPath, version };
+}
+function isNpmGlobalInstall() {
+    try {
+        const checkCmd = process.platform === "win32" ? "where" : "which";
+        let binaryPath = (0, child_process_1.execSync)(`${checkCmd} opencode`, { encoding: "utf-8" }).trim().split("\n")[0];
+        // On Windows, check the actual file path with extension
+        if (process.platform === "win32") {
+            // Check if the path needs an extension
+            if (!fs_1.default.existsSync(binaryPath)) {
+                const extensions = [".cmd", ".exe", ".ps1", ".bat"];
+                for (const ext of extensions) {
+                    if (fs_1.default.existsSync(binaryPath + ext)) {
+                        binaryPath = binaryPath + ext;
+                        break;
+                    }
+                }
+            }
+            // Check if it's from npm global install
+            return binaryPath.includes("nodejs") ||
+                binaryPath.includes("node_modules") ||
+                binaryPath.includes("npm") ||
+                binaryPath.includes("nvm") ||
+                binaryPath.endsWith(".ps1") ||
+                binaryPath.endsWith(".cmd");
+        }
+        return binaryPath.includes("node_modules") ||
+            binaryPath.includes("npm") ||
+            binaryPath.includes("nvm");
+    }
+    catch {
+        return false;
+    }
+}
 function getTranslationsDir() {
     const scriptDir = __dirname;
     const possiblePaths = [
@@ -629,7 +722,25 @@ async function main() {
     let opencodeDir;
     try {
         opencodeDir = getOpenCodeDir();
+        // Check if user has global opencode-ai installed but no source
         if (!opencodeDir) {
+            const globalBinary = getGlobalOpenCodeBinary();
+            const isNpm = isNpmGlobalInstall();
+            if (globalBinary && isNpm) {
+                log(CYAN, "╔══════════════════════════════════════════════════════════════╗");
+                log(CYAN, "║           检测到已安装的 OpenCode                            ║");
+                log(CYAN, "║           Detected OpenCode Installation                     ║");
+                log(CYAN, "╚══════════════════════════════════════════════════════════════╝\n");
+                log(GREEN, `✓ 找到 OpenCode ${globalBinary.version}`);
+                log(YELLOW, `  位置: ${globalBinary.path}\n`);
+                log(CYAN, "OpenCode 中文版需要从源码构建以支持翻译。");
+                log(YELLOW, "\n选择安装方式：");
+                log(YELLOW, "  1. 安装中文版 (推荐): opencode-cn-localize --install");
+                log(YELLOW, "  2. 继续使用原版 (不翻译): opencode\n");
+                log(CYAN, "提示: 安装中文版后，运行 'opencode' 将启动中文版。");
+                log(YELLOW, "      原版 opencode-ai 仍可通过 'npx opencode-ai' 运行。\n");
+                process.exit(0);
+            }
             log(RED, "错误: 未找到 OpenCode 安装目录");
             log(YELLOW, "\n请选择以下方式之一：");
             log(YELLOW, "  1. 设置环境变量: export OPENCODE_SOURCE_DIR=/path/to/opencode");
