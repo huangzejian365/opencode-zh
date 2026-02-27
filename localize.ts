@@ -427,6 +427,17 @@ function copyBinaryToNodeModules(opencodeDir: string): void {
   } else {
     console.log(`⚠ Binary not found at: ${distBinaryPath}`)
   }
+
+  // On Windows, create a .cmd wrapper script so users can run 'opencode' directly
+  if (platform === "win32") {
+    const binDir = path.join(opencodeDir, "packages", "opencode", "bin")
+    const cmdPath = path.join(binDir, "opencode.cmd")
+    const cmdContent = `@echo off
+"${nodeModulesBinaryPath}" %*
+`
+    fs.writeFileSync(cmdPath, cmdContent)
+    console.log(`✓ Created opencode.cmd wrapper script`)
+  }
 }
 
 function buildOpenCode(opencodeDir: string): Promise<number> {
