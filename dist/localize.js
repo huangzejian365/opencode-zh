@@ -420,7 +420,11 @@ function runOpenCode(opencodeDir) {
     }
     if (!binaryPath) {
         log(RED, `错误: 未找到 OpenCode 二进制文件`);
-        log(YELLOW, `请先运行: opencode-cn-localize`);
+        log(YELLOW, `\n请按以下步骤操作：`);
+        log(YELLOW, `  1. 运行翻译命令: opencode-cn-localize`);
+        log(YELLOW, `  2. 等待构建完成`);
+        log(YELLOW, `  3. 再次运行: opencode`);
+        log(YELLOW, `\n或者使用快速安装: opencode-cn-localize --install && opencode-cn-localize`);
         process.exit(1);
         return;
     }
