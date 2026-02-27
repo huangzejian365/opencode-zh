@@ -65,13 +65,19 @@ function getOpenCodeDir(): string | null {
 
 function getTranslationsDir(): string {
   const scriptDir = __dirname
-  const translationsDir = path.join(scriptDir, "translations")
+  const possiblePaths = [
+    path.join(scriptDir, "translations"),  // 当在项目根目录运行时
+    path.join(scriptDir, "..", "translations"),  // 当从 dist/ 运行时
+    path.join(process.cwd(), "translations"),  // 当前工作目录
+  ]
   
-  if (fs.existsSync(translationsDir)) {
-    return translationsDir
+  for (const translationsDir of possiblePaths) {
+    if (fs.existsSync(translationsDir)) {
+      return translationsDir
+    }
   }
   
-  throw new Error(`Translations directory not found: ${translationsDir}`)
+  throw new Error(`Translations directory not found. Searched: ${possiblePaths.join(", ")}`)
 }
 
 function loadModuleConfig(translationsDir: string): ModuleConfig {

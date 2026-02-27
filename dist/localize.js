@@ -39,11 +39,17 @@ function getOpenCodeDir() {
 }
 function getTranslationsDir() {
     const scriptDir = __dirname;
-    const translationsDir = path_1.default.join(scriptDir, "translations");
-    if (fs_1.default.existsSync(translationsDir)) {
-        return translationsDir;
+    const possiblePaths = [
+        path_1.default.join(scriptDir, "translations"), // 当在项目根目录运行时
+        path_1.default.join(scriptDir, "..", "translations"), // 当从 dist/ 运行时
+        path_1.default.join(process.cwd(), "translations"), // 当前工作目录
+    ];
+    for (const translationsDir of possiblePaths) {
+        if (fs_1.default.existsSync(translationsDir)) {
+            return translationsDir;
+        }
     }
-    throw new Error(`Translations directory not found: ${translationsDir}`);
+    throw new Error(`Translations directory not found. Searched: ${possiblePaths.join(", ")}`);
 }
 function loadModuleConfig(translationsDir) {
     const configPath = path_1.default.join(translationsDir, "config.json");
