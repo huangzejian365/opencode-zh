@@ -211,44 +211,37 @@ function installOpenCode(targetDir: string): Promise<boolean> {
 
       log(CYAN, "[3/4] 安装依赖...")
       // Use --ignore-scripts to avoid husky and other prepare script errors
-      const installArgs = ["install", "--ignore-scripts"]
-      
-      const installProcess = spawn(bunCmd, installArgs, {
-        cwd: targetDir,
-        stdio: "inherit",
-        shell: true
-      })
-
-      installProcess.on("close", (code) => {
-        if (code !== 0) {
-          log(RED, `依赖安装失败，退出码: ${code}`)
-          reject(new Error(`Bun install failed with code ${code}`))
-          return
-        }
-
+      try {
+        const fullCmd = `${bunCmd} install --ignore-scripts`
+        log(YELLOW, `执行命令: ${fullCmd}`)
+        execSync(fullCmd, { 
+          cwd: targetDir, 
+          stdio: "inherit",
+          env: { ...process.env }
+        })
         log(GREEN, "✓ 依赖安装完成\n")
-        log(CYAN, "[4/4] 检查版本匹配...")
-        
-        const installedVersion = getOpenCodeVersion(targetDir)
-        const translationsDir = getTranslationsDir()
-        const moduleConfig = loadModuleConfig(translationsDir)
-        
-        if (installedVersion === moduleConfig.version) {
-          log(GREEN, `✓ 版本匹配！OpenCode: ${installedVersion}\n`)
-          resolve(true)
-        } else {
-          log(YELLOW, `⚠ 版本不匹配！`)
-          log(YELLOW, `   OpenCode: ${installedVersion}`)
-          log(YELLOW, `   翻译插件: ${moduleConfig.version}`)
-          log(YELLOW, `   可能存在未翻译的内容\n`)
-          resolve(true)
-        }
-      })
-
-      installProcess.on("error", (error) => {
-        log(RED, `依赖安装错误: ${error.message}`)
+      } catch (error) {
+        log(RED, `依赖安装失败: ${(error as Error).message}`)
         reject(error)
-      })
+        return
+      }
+
+      log(CYAN, "[4/4] 检查版本匹配...")
+      
+      const installedVersion = getOpenCodeVersion(targetDir)
+      const translationsDir = getTranslationsDir()
+      const moduleConfig = loadModuleConfig(translationsDir)
+      
+      if (installedVersion === moduleConfig.version) {
+        log(GREEN, `✓ 版本匹配！OpenCode: ${installedVersion}\n`)
+        resolve(true)
+      } else {
+        log(YELLOW, `⚠ 版本不匹配！`)
+        log(YELLOW, `   OpenCode: ${installedVersion}`)
+        log(YELLOW, `   翻译插件: ${moduleConfig.version}`)
+        log(YELLOW, `   可能存在未翻译的内容\n`)
+        resolve(true)
+      }
     })
 
     cloneProcess.on("error", (error) => {
