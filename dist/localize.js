@@ -160,25 +160,12 @@ function installOpenCode(targetDir) {
             }
             log(GREEN, "✓ 源码克隆完成\n");
             log(CYAN, "[3/4] 安装依赖...");
-            // First install with --ignore-scripts to avoid husky errors
-            // Then we'll do a full install for building later
+            // Use --ignore-scripts to avoid husky and other prepare script errors
             const installArgs = ["install", "--ignore-scripts"];
-            // Handle both "bun" and "npx bun" cases properly
-            let cmd;
-            let args;
-            if (bunCmd.includes(" ")) {
-                // For commands like "npx bun", use shell execution
-                cmd = process.platform === "win32" ? "cmd" : "sh";
-                args = ["/c", bunCmd].concat(installArgs);
-            }
-            else {
-                cmd = bunCmd;
-                args = installArgs;
-            }
-            const installProcess = (0, child_process_1.spawn)(cmd, args, {
+            const installProcess = (0, child_process_1.spawn)(bunCmd, installArgs, {
                 cwd: targetDir,
                 stdio: "inherit",
-                shell: !bunCmd.includes(" ")
+                shell: true
             });
             installProcess.on("close", (code) => {
                 if (code !== 0) {
