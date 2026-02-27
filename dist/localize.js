@@ -160,9 +160,9 @@ function installOpenCode(targetDir) {
             }
             log(GREEN, "✓ 源码克隆完成\n");
             log(CYAN, "[3/4] 安装依赖...");
-            // Use --production to skip devDependencies for faster install
-            // Use --ignore-scripts to avoid husky and other prepare script errors
-            const installArgs = ["install", "--production", "--ignore-scripts"];
+            // First install with --ignore-scripts to avoid husky errors
+            // Then we'll do a full install for building later
+            const installArgs = ["install", "--ignore-scripts"];
             // Handle both "bun" and "npx bun" cases properly
             let cmd;
             let args;
